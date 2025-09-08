@@ -9,6 +9,10 @@ use ratatui::{
     widgets::{Block, Paragraph, Widget},
 };
 
+use crate::bits::Bits;
+
+pub mod bits;
+
 fn main() -> Result<()> {
     color_eyre::install()?;
 
@@ -21,11 +25,13 @@ fn main() -> Result<()> {
 
 #[derive(Debug, Default)]
 struct App {
-    time: f64,
+    bits: Bits,
+    bit_rate: f64,
     quit_requested: bool,
 }
 
 impl App {
+    /// Game updates and event polling are subject to this rate.
     const TICK_RATE: Duration = Duration::from_millis(1000 / 20);
 
     pub fn run(&mut self, terminal: &mut DefaultTerminal) -> Result<()> {
@@ -69,13 +75,19 @@ impl App {
     }
 
     fn update(&mut self, delta: Duration) {
-        self.time += delta.as_secs_f64();
+        if self.bit_rate == 0.0 {
+            self.bit_rate = 1.0;
+        } else {
+            self.bit_rate *= 1.6;
+        }
+
+        self.bits.0 += self.bit_rate * delta.as_secs_f64();
     }
 }
 
 impl Widget for &App {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let line = Line::from(format!("{:.3}s", self.time)).centered();
+        let line = Line::from(format!("{}", self.bits)).centered();
         Paragraph::new(line)
             .block(Block::bordered())
             .render(area, buf);
