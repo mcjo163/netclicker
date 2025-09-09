@@ -59,6 +59,12 @@ impl Display for Bits {
     }
 }
 
+impl From<f64> for Bits {
+    fn from(value: f64) -> Self {
+        Self(value)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

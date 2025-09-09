@@ -5,6 +5,7 @@ use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use ratatui::{
     DefaultTerminal, Frame,
     prelude::{Buffer, Rect},
+    style::Stylize,
     text::Line,
     widgets::{Block, Paragraph, Widget},
 };
@@ -23,11 +24,21 @@ fn main() -> Result<()> {
     result
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct App {
     bits: Bits,
-    bit_rate: f64,
+    download_speed_log: Vec<Bits>,
     quit_requested: bool,
+}
+
+impl Default for App {
+    fn default() -> Self {
+        Self {
+            bits: 0.0.into(),
+            download_speed_log: Vec::with_capacity(20),
+            quit_requested: false,
+        }
+    }
 }
 
 impl App {
@@ -66,6 +77,9 @@ impl App {
             KeyCode::Char('q') | KeyCode::Esc => {
                 self.quit_requested = true;
             }
+            KeyCode::Char('b') => {
+                self.bits.0 += 1.0;
+            }
             _ => {}
         }
     }
@@ -75,21 +89,32 @@ impl App {
     }
 
     fn update(&mut self, delta: Duration) {
-        if self.bit_rate == 0.0 {
-            self.bit_rate = 1.0;
-        } else {
-            self.bit_rate *= 1.6;
+        if self.download_speed_log.len() == 20 {
+            self.download_speed_log.drain(0..1);
         }
+        self.download_speed_log.push(self.bits);
+    }
 
-        self.bits.0 += self.bit_rate * delta.as_secs_f64();
+    fn download_speed(&self) -> Bits {
+        let summed_difference: f64 = self
+            .download_speed_log
+            .iter()
+            .zip(self.download_speed_log.iter().skip(1))
+            .map(|(&Bits(a), &Bits(b))| b - a)
+            .sum();
+        (summed_difference / (20.0 * App::TICK_RATE.as_secs_f64())).into()
     }
 }
 
 impl Widget for &App {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let line = Line::from(format!("{}", self.bits)).centered();
-        Paragraph::new(line)
-            .block(Block::bordered())
-            .render(area, buf);
+        Paragraph::new(vec![
+            Line::from(format!("{}", self.bits)).centered(),
+            Line::from(format!("{}/s", self.download_speed()))
+                .dim()
+                .centered(),
+        ])
+        .block(Block::bordered())
+        .render(area, buf);
     }
 }
